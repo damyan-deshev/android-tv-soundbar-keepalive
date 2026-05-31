@@ -32,6 +32,12 @@ The TV UI lets you set:
 
 There are also quick presets for `25k`, `22k`, and `Silent`. The silent preset is useful for checking whether an active PCM stream alone is enough for your hardware.
 
+## Download APK
+
+Grab the latest APK from [Releases](https://github.com/damyan-deshev/android-tv-soundbar-keepalive/releases).
+
+The current APK is debug-signed and meant for sideloading/testing. Android TV will probably ask you to allow installs from your sideloading app or ADB first.
+
 ## Build
 
 Install Android SDK platform/build tools, then point `ANDROID_HOME` or `ANDROID_SDK_ROOT` at the SDK:
