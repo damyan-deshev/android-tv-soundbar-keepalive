@@ -10,6 +10,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -30,12 +31,51 @@ public class MainActivity extends Activity {
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
 
-        ScrollView scrollView = new ScrollView(this);
+        FrameLayout frame = new FrameLayout(this);
+
+        final ScrollView scrollView = new ScrollView(this);
+        scrollView.setVerticalScrollBarEnabled(true);
+        scrollView.setScrollbarFadingEnabled(false);
+        scrollView.setScrollBarStyle(View.SCROLLBARS_INSIDE_INSET);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(48, 40, 48, 48);
+        root.setPadding(48, 32, 80, 32);
         scrollView.addView(root);
+        frame.addView(scrollView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+
+        View scrollTrack = new View(this);
+        scrollTrack.setBackgroundColor(Color.rgb(78, 78, 78));
+        FrameLayout.LayoutParams trackParams = new FrameLayout.LayoutParams(4,
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                Gravity.RIGHT);
+        trackParams.setMargins(0, 40, 24, 40);
+        frame.addView(scrollTrack, trackParams);
+
+        final View scrollThumb = new View(this);
+        scrollThumb.setBackgroundColor(Color.LTGRAY);
+        FrameLayout.LayoutParams thumbParams = new FrameLayout.LayoutParams(8, 160,
+                Gravity.RIGHT | Gravity.TOP);
+        thumbParams.setMargins(0, 56, 22, 0);
+        frame.addView(scrollThumb, thumbParams);
+
+        scrollView.post(new Runnable() {
+            @Override
+            public void run() {
+                updateScrollThumb(scrollView, scrollThumb);
+            }
+        });
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            scrollView.setOnScrollChangeListener(new View.OnScrollChangeListener() {
+                @Override
+                public void onScrollChange(View view, int scrollX, int scrollY, int oldScrollX, int oldScrollY) {
+                    updateScrollThumb(scrollView, scrollThumb);
+                }
+            });
+        }
 
         TextView title = new TextView(this);
         title.setText("Soundbar Keepalive");
@@ -44,15 +84,18 @@ public class MainActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         root.addView(title, fullWidth());
 
-        frequencyInput = addNumberField(root, "Frequency Hz",
+        LinearLayout firstRow = addRow(root, 20);
+        frequencyInput = addNumberField(firstRow, "Frequency Hz",
                 prefs.getInt(KeepAliveService.EXTRA_FREQUENCY_HZ, KeepAliveService.DEFAULT_FREQUENCY_HZ));
-        sampleRateInput = addNumberField(root, "Sample rate",
+        sampleRateInput = addNumberField(firstRow, "Sample rate",
                 prefs.getInt(KeepAliveService.EXTRA_SAMPLE_RATE, KeepAliveService.DEFAULT_SAMPLE_RATE));
-        amplitudeInput = addNumberField(root, "Amplitude",
+        amplitudeInput = addNumberField(firstRow, "Amplitude",
                 prefs.getInt(KeepAliveService.EXTRA_AMPLITUDE, KeepAliveService.DEFAULT_AMPLITUDE));
-        durationInput = addNumberField(root, "Pulse ms",
+
+        LinearLayout secondRow = addRow(root, 14);
+        durationInput = addNumberField(secondRow, "Pulse ms",
                 prefs.getInt(KeepAliveService.EXTRA_DURATION_MS, KeepAliveService.DEFAULT_DURATION_MS));
-        intervalInput = addNumberField(root, "Interval sec",
+        intervalInput = addNumberField(secondRow, "Interval sec",
                 prefs.getInt(KeepAliveService.EXTRA_INTERVAL_SEC, KeepAliveService.DEFAULT_INTERVAL_SEC));
 
         LinearLayout presets = new LinearLayout(this);
@@ -80,27 +123,51 @@ public class MainActivity extends Activity {
             }
         });
 
-        addButton(root, "Start", new View.OnClickListener() {
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams actionRowParams = fullWidth();
+        actionRowParams.setMargins(0, 18, 0, 0);
+        root.addView(actions, actionRowParams);
+
+        addCompactButton(actions, "Start", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 startConfigured(KeepAliveService.ACTION_START);
                 status.setText("Running");
             }
         });
-        addButton(root, "Pulse Once", new View.OnClickListener() {
+        addCompactButton(actions, "Save", new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                saveConfigured();
+                status.setText("Saved");
+            }
+        });
+        addCompactButton(actions, "Pulse Once", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 startConfigured(KeepAliveService.ACTION_PULSE);
                 status.setText("Pulse sent");
             }
         });
-        addButton(root, "Stop", new View.OnClickListener() {
+        addCompactButton(actions, "Stop", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 Intent intent = new Intent(MainActivity.this, KeepAliveService.class);
                 intent.setAction(KeepAliveService.ACTION_STOP);
                 startService(intent);
                 status.setText("Stopped");
+            }
+        });
+        addCompactButton(actions, "Exit", new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (android.os.Build.VERSION.SDK_INT >= 21) {
+                    finishAndRemoveTask();
+                } else {
+                    finish();
+                }
             }
         });
 
@@ -110,20 +177,57 @@ public class MainActivity extends Activity {
         status.setTextSize(18);
         status.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams statusParams = fullWidth();
-        statusParams.setMargins(0, 24, 0, 0);
+        statusParams.setMargins(0, 18, 0, 0);
         root.addView(status, statusParams);
 
-        setContentView(scrollView);
+        setContentView(frame);
     }
 
-    private EditText addNumberField(LinearLayout root, String label, int value) {
+    private void updateScrollThumb(ScrollView scrollView, View scrollThumb) {
+        int viewportHeight = Math.max(1, scrollView.getHeight());
+        View content = scrollView.getChildAt(0);
+        int contentHeight = content == null ? viewportHeight : Math.max(viewportHeight, content.getHeight());
+        int topOffset = 56;
+        int bottomOffset = 56;
+        int availableHeight = Math.max(1, viewportHeight - topOffset - bottomOffset);
+
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) scrollThumb.getLayoutParams();
+        if (contentHeight <= viewportHeight) {
+            params.height = Math.min(availableHeight, 160);
+            params.topMargin = topOffset;
+            scrollThumb.setAlpha(0.45f);
+        } else {
+            int scrollRange = contentHeight - viewportHeight;
+            params.height = Math.max(96, (viewportHeight * availableHeight) / contentHeight);
+            int maxThumbTop = topOffset + Math.max(0, availableHeight - params.height);
+            params.topMargin = topOffset + ((maxThumbTop - topOffset) * scrollView.getScrollY()) / scrollRange;
+            scrollThumb.setAlpha(0.9f);
+        }
+        scrollThumb.setLayoutParams(params);
+    }
+
+    private LinearLayout addRow(LinearLayout root, int topMargin) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams params = fullWidth();
+        params.setMargins(0, topMargin, 0, 0);
+        root.addView(row, params);
+        return row;
+    }
+
+    private EditText addNumberField(LinearLayout parent, String label, int value) {
+        LinearLayout field = new LinearLayout(this);
+        field.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1);
+        fieldParams.setMargins(8, 0, 8, 0);
+        parent.addView(field, fieldParams);
+
         TextView textView = new TextView(this);
         textView.setText(label);
         textView.setTextColor(Color.LTGRAY);
         textView.setTextSize(16);
-        LinearLayout.LayoutParams labelParams = fullWidth();
-        labelParams.setMargins(0, 20, 0, 4);
-        root.addView(textView, labelParams);
+        field.addView(textView, fullWidth());
 
         EditText editText = new EditText(this);
         editText.setText(String.valueOf(value));
@@ -131,18 +235,8 @@ public class MainActivity extends Activity {
         editText.setSelectAllOnFocus(true);
         editText.setTextSize(20);
         editText.setInputType(InputType.TYPE_CLASS_NUMBER);
-        root.addView(editText, fullWidth());
+        field.addView(editText, fullWidth());
         return editText;
-    }
-
-    private void addButton(LinearLayout root, String label, View.OnClickListener listener) {
-        Button button = new Button(this);
-        button.setText(label);
-        button.setTextSize(20);
-        button.setOnClickListener(listener);
-        LinearLayout.LayoutParams params = fullWidth();
-        params.setMargins(0, 20, 0, 0);
-        root.addView(button, params);
     }
 
     private void addCompactButton(LinearLayout root, String label, View.OnClickListener listener) {
@@ -177,6 +271,22 @@ public class MainActivity extends Activity {
         intent.putExtra(KeepAliveService.EXTRA_INTERVAL_SEC,
                 readInt(intervalInput, KeepAliveService.DEFAULT_INTERVAL_SEC));
         startForegroundServiceCompat(intent);
+    }
+
+    private void saveConfigured() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putInt(KeepAliveService.EXTRA_FREQUENCY_HZ,
+                        readInt(frequencyInput, KeepAliveService.DEFAULT_FREQUENCY_HZ))
+                .putInt(KeepAliveService.EXTRA_SAMPLE_RATE,
+                        readInt(sampleRateInput, KeepAliveService.DEFAULT_SAMPLE_RATE))
+                .putInt(KeepAliveService.EXTRA_AMPLITUDE,
+                        readInt(amplitudeInput, KeepAliveService.DEFAULT_AMPLITUDE))
+                .putInt(KeepAliveService.EXTRA_DURATION_MS,
+                        readInt(durationInput, KeepAliveService.DEFAULT_DURATION_MS))
+                .putInt(KeepAliveService.EXTRA_INTERVAL_SEC,
+                        readInt(intervalInput, KeepAliveService.DEFAULT_INTERVAL_SEC))
+                .apply();
     }
 
     private int readInt(EditText input, int fallback) {

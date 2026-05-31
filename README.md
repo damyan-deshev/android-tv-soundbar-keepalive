@@ -38,6 +38,14 @@ Grab the latest APK from [Releases](https://github.com/damyan-deshev/android-tv-
 
 The current APK is debug-signed and meant for sideloading/testing. Android TV will probably ask you to allow installs from your sideloading app or ADB first.
 
+## TV UI
+
+![Soundbar Keepalive TV UI](docs/screenshot-main.png)
+
+1. Install the APK from Releases, open `Soundbar Keepalive`, and make sure the TV is still using the audio route that goes to your soundbar.
+2. Try the `25K` preset first. `Pulse Once` sends a single test pulse, and `Save` stores the fields without starting the repeating service.
+3. Press `Start` to keep sending pulses on the interval. `Stop` stops the service. `Exit` just closes the screen, so a running service keeps running.
+
 ## Build
 
 Install Android SDK platform/build tools, then point `ANDROID_HOME` or `ANDROID_SDK_ROOT` at the SDK:
