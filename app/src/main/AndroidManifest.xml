@@ -1,5 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="io.github.damyandeshev.soundbarkeepalive">
+    package="io.github.damyandeshev.soundbarkeepalive"
+    android:versionCode="2"
+    android:versionName="0.2.0">
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
@@ -22,5 +25,15 @@
         <service
             android:name=".KeepAliveService"
             android:exported="true" />
+
+        <receiver
+            android:name=".KeepAliveReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

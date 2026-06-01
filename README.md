@@ -32,6 +32,8 @@ The TV UI lets you set:
 
 There are also quick presets for `25k`, `22k`, and `Silent`. The silent preset is useful for checking whether an active PCM stream alone is enough for your hardware.
 
+The status line shows whether keepalive is enabled, how many pulses have completed, the last pulse time, and the last saved error if one happened.
+
 ## Download APK
 
 Grab the latest APK from [Releases](https://github.com/damyan-deshev/android-tv-soundbar-keepalive/releases).
@@ -44,7 +46,7 @@ The current APK is debug-signed and meant for sideloading/testing. Android TV wi
 
 1. Install the APK from Releases, open `Soundbar Keepalive`, and make sure the TV is still using the audio route that goes to your soundbar.
 2. Try the `25K` preset first. `Pulse Once` sends a single test pulse, and `Save` stores the fields without starting the repeating service.
-3. Press `Start` to keep sending pulses on the interval. `Stop` stops the service. `Exit` just closes the screen, so a running service keeps running.
+3. Press `Start` to keep sending pulses on the interval and restore it after TV boot. `Stop` disables that restore path. `Exit` just closes the screen, so a running service keeps running.
 
 ## Build
 
@@ -111,7 +113,7 @@ The service is `exported=true` so ADB can start it directly. That is convenient 
 
 The app logs two info lines per pulse. Android logcat is a bounded ring buffer, so it should not grow like an app-owned log file. If you want quieter logs, remove the `Log.i` lines in `KeepAliveService.playPulse`.
 
-The app does not start after boot yet. I prefer turning that on after a few evenings of real use.
+After `Start`, the app stores an enabled flag and uses a boot/package-replaced receiver to bring the foreground service back. Some Android TV builds are aggressive about background starts; if yours still kills it, open the app and press `Start` once again, then check the status line for the latest pulse time.
 
 ## License
 

@@ -25,6 +25,7 @@ public class KeepAliveService extends Service {
     public static final String ACTION_STOP = "io.github.damyandeshev.soundbarkeepalive.STOP";
     public static final String ACTION_PULSE = "io.github.damyandeshev.soundbarkeepalive.PULSE";
 
+    public static final String EXTRA_START_REASON = "start_reason";
     public static final String EXTRA_FREQUENCY_HZ = "frequency_hz";
     public static final String EXTRA_AMPLITUDE = "amplitude";
     public static final String EXTRA_DURATION_MS = "duration_ms";
@@ -40,7 +41,13 @@ public class KeepAliveService extends Service {
     public static final int DEFAULT_INTERVAL_SEC = 540;
     public static final int DEFAULT_SAMPLE_RATE = 96000;
 
-    private static final String PREFS_NAME = "settings";
+    public static final String PREFS_NAME = "settings";
+    public static final String PREF_ENABLED = "enabled";
+    public static final String PREF_LAST_START_MS = "last_start_ms";
+    public static final String PREF_LAST_PULSE_STARTED_MS = "last_pulse_started_ms";
+    public static final String PREF_LAST_PULSE_FINISHED_MS = "last_pulse_finished_ms";
+    public static final String PREF_PULSE_COUNT = "pulse_count";
+    public static final String PREF_LAST_ERROR = "last_error";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -51,6 +58,23 @@ public class KeepAliveService extends Service {
     private int intervalSec;
     private int sampleRate;
     private boolean scheduled;
+
+    public static void startIfEnabled(Context context, String reason) {
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        if (!prefs.getBoolean(PREF_ENABLED, false)) {
+            Log.i(TAG, "skip restart, disabled reason=" + reason);
+            return;
+        }
+
+        Intent intent = new Intent(context, KeepAliveService.class);
+        intent.setAction(ACTION_START);
+        intent.putExtra(EXTRA_START_REASON, reason);
+        if (Build.VERSION.SDK_INT >= 26) {
+            context.startForegroundService(intent);
+        } else {
+            context.startService(intent);
+        }
+    }
 
     private final Runnable pulseRunnable = new Runnable() {
         @Override
@@ -72,8 +96,14 @@ public class KeepAliveService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent == null && !isEnabled()) {
+            stopSelf();
+            return START_NOT_STICKY;
+        }
+
         String action = intent == null ? ACTION_START : intent.getAction();
         if (ACTION_STOP.equals(action)) {
+            setEnabled(false);
             stopSchedule();
             stopForeground(true);
             stopSelf();
@@ -81,11 +111,14 @@ public class KeepAliveService extends Service {
         }
 
         loadConfig(intent);
-        startForeground(NOTIFICATION_ID, buildNotification("active"));
 
         if (ACTION_PULSE.equals(action)) {
+            startForeground(NOTIFICATION_ID, buildNotification("pulse"));
             playPulseAsync(true);
         } else {
+            setEnabled(true);
+            saveLastStart();
+            startForeground(NOTIFICATION_ID, buildNotification("active"));
             startSchedule();
         }
 
@@ -173,6 +206,7 @@ public class KeepAliveService extends Service {
 
     private void playPulse(int hz, int amp, int ms, int rate) {
         Log.i(TAG, "pulse start hz=" + hz + " amp=" + amp + " ms=" + ms + " rate=" + rate);
+        savePulseStarted();
         int samples = Math.max(1, (rate * ms) / 1000);
         short[] pcm = new short[samples * 2];
         int toneHz = hz >= rate / 2 ? Math.max(0, (rate / 2) - 100) : hz;
@@ -213,6 +247,7 @@ public class KeepAliveService extends Service {
             track.play();
             Thread.sleep(ms + 150L);
         } catch (Exception e) {
+            savePulseError(e);
             Log.e(TAG, "pulse failed", e);
         } finally {
             if (track != null) {
@@ -222,7 +257,63 @@ public class KeepAliveService extends Service {
                 }
                 track.release();
             }
+            savePulseFinished();
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    updateNotification("active");
+                }
+            });
             Log.i(TAG, "pulse finish");
+        }
+    }
+
+    private boolean isEnabled() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false);
+    }
+
+    private void setEnabled(boolean enabled) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_ENABLED, enabled)
+                .apply();
+    }
+
+    private void saveLastStart() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putLong(PREF_LAST_START_MS, System.currentTimeMillis())
+                .apply();
+    }
+
+    private void savePulseStarted() {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putLong(PREF_LAST_PULSE_STARTED_MS, System.currentTimeMillis())
+                .putString(PREF_LAST_ERROR, "")
+                .apply();
+    }
+
+    private void savePulseFinished() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        long count = prefs.getLong(PREF_PULSE_COUNT, 0L) + 1L;
+        prefs.edit()
+                .putLong(PREF_LAST_PULSE_FINISHED_MS, System.currentTimeMillis())
+                .putLong(PREF_PULSE_COUNT, count)
+                .apply();
+    }
+
+    private void savePulseError(Exception e) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putString(PREF_LAST_ERROR, e.getClass().getSimpleName() + ": " + e.getMessage())
+                .apply();
+    }
+
+    private void updateNotification(String state) {
+        NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify(NOTIFICATION_ID, buildNotification(state));
         }
     }
 

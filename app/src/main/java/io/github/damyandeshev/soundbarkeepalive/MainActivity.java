@@ -15,8 +15,13 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class MainActivity extends Activity {
     private static final String PREFS_NAME = "settings";
+    private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
 
     private EditText frequencyInput;
     private EditText sampleRateInput;
@@ -134,21 +139,21 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View view) {
                 startConfigured(KeepAliveService.ACTION_START);
-                status.setText("Running");
+                setStatus("Running");
             }
         });
         addCompactButton(actions, "Save", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 saveConfigured();
-                status.setText("Saved");
+                setStatus("Saved");
             }
         });
         addCompactButton(actions, "Pulse Once", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 startConfigured(KeepAliveService.ACTION_PULSE);
-                status.setText("Pulse sent");
+                setStatus("Pulse sent");
             }
         });
         addCompactButton(actions, "Stop", new View.OnClickListener() {
@@ -157,7 +162,7 @@ public class MainActivity extends Activity {
                 Intent intent = new Intent(MainActivity.this, KeepAliveService.class);
                 intent.setAction(KeepAliveService.ACTION_STOP);
                 startService(intent);
-                status.setText("Stopped");
+                setStatus("Stopped");
             }
         });
         addCompactButton(actions, "Exit", new View.OnClickListener() {
@@ -172,15 +177,23 @@ public class MainActivity extends Activity {
         });
 
         status = new TextView(this);
-        status.setText("Idle");
         status.setTextColor(Color.LTGRAY);
         status.setTextSize(18);
         status.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams statusParams = fullWidth();
         statusParams.setMargins(0, 18, 0, 0);
         root.addView(status, statusParams);
+        setStatus("Idle");
 
         setContentView(frame);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (status != null) {
+            setStatus("Idle");
+        }
     }
 
     private void updateScrollThumb(ScrollView scrollView, View scrollThumb) {
@@ -287,6 +300,32 @@ public class MainActivity extends Activity {
                 .putInt(KeepAliveService.EXTRA_INTERVAL_SEC,
                         readInt(intervalInput, KeepAliveService.DEFAULT_INTERVAL_SEC))
                 .apply();
+    }
+
+    private void setStatus(String state) {
+        status.setText(state + "\n" + telemetryText());
+    }
+
+    private String telemetryText() {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        boolean enabled = prefs.getBoolean(KeepAliveService.PREF_ENABLED, false);
+        long count = prefs.getLong(KeepAliveService.PREF_PULSE_COUNT, 0L);
+        long lastFinished = prefs.getLong(KeepAliveService.PREF_LAST_PULSE_FINISHED_MS, 0L);
+        String lastError = prefs.getString(KeepAliveService.PREF_LAST_ERROR, "");
+        String text = (enabled ? "Enabled" : "Disabled")
+                + " | pulses " + count
+                + " | last " + formatTime(lastFinished);
+        if (lastError != null && lastError.length() > 0) {
+            text += "\nLast error: " + lastError;
+        }
+        return text;
+    }
+
+    private String formatTime(long millis) {
+        if (millis <= 0L) {
+            return "never";
+        }
+        return timeFormat.format(new Date(millis));
     }
 
     private int readInt(EditText input, int fallback) {
