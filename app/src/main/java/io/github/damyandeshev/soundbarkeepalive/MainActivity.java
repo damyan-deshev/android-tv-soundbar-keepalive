@@ -20,7 +20,6 @@ import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
-    private static final String PREFS_NAME = "settings";
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm:ss", Locale.US);
 
     private EditText frequencyInput;
@@ -34,7 +33,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = KeepAliveService.getSettings(this);
         KeepAliveService.migrateConfig(prefs);
 
         FrameLayout frame = new FrameLayout(this);
@@ -110,22 +109,22 @@ public class MainActivity extends Activity {
         presets.setPadding(0, 18, 0, 0);
         root.addView(presets, fullWidth());
 
-        addCompactButton(presets, "25k", new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                applyValues(25000, 96000, 900, 6000, 120);
-            }
-        });
         addCompactButton(presets, "22k", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                applyValues(22000, 48000, 900, 6000, 120);
+                applyValues(22000, 48000, 900, 6000, 60);
+            }
+        });
+        addCompactButton(presets, "25k", new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                applyValues(25000, 96000, 900, 6000, 60);
             }
         });
         addCompactButton(presets, "Silent", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                applyValues(0, 48000, 0, 6000, 120);
+                applyValues(0, 48000, 0, 6000, 60);
             }
         });
 
@@ -288,7 +287,7 @@ public class MainActivity extends Activity {
     }
 
     private void saveConfigured() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = KeepAliveService.getSettings(this);
         KeepAliveService.migrateConfig(prefs);
         prefs.edit()
                 .putInt(KeepAliveService.EXTRA_FREQUENCY_HZ,
@@ -309,7 +308,7 @@ public class MainActivity extends Activity {
     }
 
     private String telemetryText() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = KeepAliveService.getSettings(this);
         boolean enabled = prefs.getBoolean(KeepAliveService.PREF_ENABLED, false);
         long count = prefs.getLong(KeepAliveService.PREF_PULSE_COUNT, 0L);
         long lastFinished = prefs.getLong(KeepAliveService.PREF_LAST_PULSE_FINISHED_MS, 0L);

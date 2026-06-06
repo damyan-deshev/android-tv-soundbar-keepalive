@@ -12,8 +12,8 @@ PACKAGE="io.github.damyandeshev.soundbarkeepalive"
 "${ADB[@]}" shell am start-foreground-service \
   -n "$PACKAGE/.KeepAliveService" \
   -a "$PACKAGE.START" \
-  --ei frequency_hz "${FREQUENCY_HZ:-25000}" \
-  --ei sample_rate "${SAMPLE_RATE:-96000}" \
+  --ei frequency_hz "${FREQUENCY_HZ:-22000}" \
+  --ei sample_rate "${SAMPLE_RATE:-48000}" \
   --ei amplitude "${AMPLITUDE:-900}" \
   --ei duration_ms "${DURATION_MS:-6000}" \
-  --ei interval_sec "${INTERVAL_SEC:-120}"
+  --ei interval_sec "${INTERVAL_SEC:-60}"

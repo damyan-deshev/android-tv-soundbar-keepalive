@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.UserManager;
 import android.util.Log;
 
 import java.util.concurrent.ExecutorService;
@@ -35,14 +36,17 @@ public class KeepAliveService extends Service {
     private static final String TAG = "SoundbarKeepalive";
     private static final String CHANNEL_ID = "soundbar_keepalive";
     private static final int NOTIFICATION_ID = 7603;
-    private static final int CONFIG_VERSION = 4;
+    private static final int CONFIG_VERSION = 6;
     private static final int LEGACY_DEFAULT_INTERVAL_SEC = 540;
     private static final int TRANSIENT_DEFAULT_INTERVAL_SEC = 240;
-    public static final int DEFAULT_FREQUENCY_HZ = 25000;
+    private static final int PREVIOUS_DEFAULT_INTERVAL_SEC = 120;
+    private static final int PREVIOUS_DEFAULT_FREQUENCY_HZ = 25000;
+    private static final int PREVIOUS_DEFAULT_SAMPLE_RATE = 96000;
+    public static final int DEFAULT_FREQUENCY_HZ = 22000;
     public static final int DEFAULT_AMPLITUDE = 900;
     public static final int DEFAULT_DURATION_MS = 6000;
-    public static final int DEFAULT_INTERVAL_SEC = 120;
-    public static final int DEFAULT_SAMPLE_RATE = 96000;
+    public static final int DEFAULT_INTERVAL_SEC = 60;
+    public static final int DEFAULT_SAMPLE_RATE = 48000;
 
     public static final String PREFS_NAME = "settings";
     public static final String PREF_CONFIG_VERSION = "config_version";
@@ -64,7 +68,7 @@ public class KeepAliveService extends Service {
     private boolean scheduled;
 
     public static void startIfEnabled(Context context, String reason) {
-        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs = getSettings(context);
         if (prefs.contains(PREF_ENABLED) && !prefs.getBoolean(PREF_ENABLED, false)) {
             Log.i(TAG, "skip restart, disabled reason=" + reason);
             return;
@@ -153,7 +157,7 @@ public class KeepAliveService extends Service {
     }
 
     private void loadConfig(Intent intent) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = getSettings(this);
         migrateConfig(prefs);
         int nextFrequency = prefs.getInt(EXTRA_FREQUENCY_HZ, DEFAULT_FREQUENCY_HZ);
         int nextAmplitude = prefs.getInt(EXTRA_AMPLITUDE, DEFAULT_AMPLITUDE);
@@ -193,10 +197,31 @@ public class KeepAliveService extends Service {
 
         SharedPreferences.Editor editor = prefs.edit();
         int savedInterval = prefs.getInt(EXTRA_INTERVAL_SEC, DEFAULT_INTERVAL_SEC);
-        if (savedInterval == LEGACY_DEFAULT_INTERVAL_SEC || savedInterval == TRANSIENT_DEFAULT_INTERVAL_SEC) {
+        if (savedInterval == LEGACY_DEFAULT_INTERVAL_SEC
+                || savedInterval == TRANSIENT_DEFAULT_INTERVAL_SEC
+                || savedInterval == PREVIOUS_DEFAULT_INTERVAL_SEC) {
             editor.putInt(EXTRA_INTERVAL_SEC, DEFAULT_INTERVAL_SEC);
         }
+        int savedFrequency = prefs.getInt(EXTRA_FREQUENCY_HZ, DEFAULT_FREQUENCY_HZ);
+        int savedSampleRate = prefs.getInt(EXTRA_SAMPLE_RATE, DEFAULT_SAMPLE_RATE);
+        if (savedFrequency == PREVIOUS_DEFAULT_FREQUENCY_HZ
+                && savedSampleRate == PREVIOUS_DEFAULT_SAMPLE_RATE) {
+            editor.putInt(EXTRA_FREQUENCY_HZ, DEFAULT_FREQUENCY_HZ);
+            editor.putInt(EXTRA_SAMPLE_RATE, DEFAULT_SAMPLE_RATE);
+        }
         editor.putInt(PREF_CONFIG_VERSION, CONFIG_VERSION).apply();
+    }
+
+    public static SharedPreferences getSettings(Context context) {
+        if (Build.VERSION.SDK_INT >= 24) {
+            Context deviceContext = context.createDeviceProtectedStorageContext();
+            UserManager userManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
+            if (userManager == null || userManager.isUserUnlocked()) {
+                deviceContext.moveSharedPreferencesFrom(context, PREFS_NAME);
+            }
+            return deviceContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        }
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
     }
 
     private void playPulseAsync(final boolean stopAfterPulse) {
@@ -289,25 +314,25 @@ public class KeepAliveService extends Service {
     }
 
     private boolean isEnabled() {
-        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE).getBoolean(PREF_ENABLED, false);
+        return getSettings(this).getBoolean(PREF_ENABLED, false);
     }
 
     private void setEnabled(boolean enabled) {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        getSettings(this)
                 .edit()
                 .putBoolean(PREF_ENABLED, enabled)
                 .apply();
     }
 
     private void saveLastStart() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        getSettings(this)
                 .edit()
                 .putLong(PREF_LAST_START_MS, System.currentTimeMillis())
                 .apply();
     }
 
     private void savePulseStarted() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        getSettings(this)
                 .edit()
                 .putLong(PREF_LAST_PULSE_STARTED_MS, System.currentTimeMillis())
                 .putString(PREF_LAST_ERROR, "")
@@ -315,7 +340,7 @@ public class KeepAliveService extends Service {
     }
 
     private void savePulseFinished() {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        SharedPreferences prefs = getSettings(this);
         long count = prefs.getLong(PREF_PULSE_COUNT, 0L) + 1L;
         prefs.edit()
                 .putLong(PREF_LAST_PULSE_FINISHED_MS, System.currentTimeMillis())
@@ -324,7 +349,7 @@ public class KeepAliveService extends Service {
     }
 
     private void savePulseError(Exception e) {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+        getSettings(this)
                 .edit()
                 .putString(PREF_LAST_ERROR, e.getClass().getSimpleName() + ": " + e.getMessage())
                 .apply();

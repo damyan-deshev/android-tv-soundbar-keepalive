@@ -11,7 +11,8 @@ public class KeepAliveReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? "" : intent.getAction();
-        if (Intent.ACTION_BOOT_COMPLETED.equals(action)
+        if (Intent.ACTION_LOCKED_BOOT_COMPLETED.equals(action)
+                || Intent.ACTION_BOOT_COMPLETED.equals(action)
                 || Intent.ACTION_MY_PACKAGE_REPLACED.equals(action)) {
             Log.i(TAG, "receiver restart action=" + action);
             KeepAliveService.startIfEnabled(context, action);
