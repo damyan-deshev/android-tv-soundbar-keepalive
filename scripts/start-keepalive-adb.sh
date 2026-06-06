@@ -16,5 +16,4 @@ PACKAGE="io.github.damyandeshev.soundbarkeepalive"
   --ei sample_rate "${SAMPLE_RATE:-96000}" \
   --ei amplitude "${AMPLITUDE:-900}" \
   --ei duration_ms "${DURATION_MS:-6000}" \
-  --ei interval_sec "${INTERVAL_SEC:-540}"
-
+  --ei interval_sec "${INTERVAL_SEC:-120}"

@@ -35,6 +35,7 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        KeepAliveService.migrateConfig(prefs);
 
         FrameLayout frame = new FrameLayout(this);
 
@@ -112,19 +113,19 @@ public class MainActivity extends Activity {
         addCompactButton(presets, "25k", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                applyValues(25000, 96000, 900, 6000, 540);
+                applyValues(25000, 96000, 900, 6000, 120);
             }
         });
         addCompactButton(presets, "22k", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                applyValues(22000, 48000, 900, 6000, 540);
+                applyValues(22000, 48000, 900, 6000, 120);
             }
         });
         addCompactButton(presets, "Silent", new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                applyValues(0, 48000, 0, 6000, 540);
+                applyValues(0, 48000, 0, 6000, 120);
             }
         });
 
@@ -287,8 +288,9 @@ public class MainActivity extends Activity {
     }
 
     private void saveConfigured() {
-        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .edit()
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        KeepAliveService.migrateConfig(prefs);
+        prefs.edit()
                 .putInt(KeepAliveService.EXTRA_FREQUENCY_HZ,
                         readInt(frequencyInput, KeepAliveService.DEFAULT_FREQUENCY_HZ))
                 .putInt(KeepAliveService.EXTRA_SAMPLE_RATE,

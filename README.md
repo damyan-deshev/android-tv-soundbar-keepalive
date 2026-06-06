@@ -9,7 +9,7 @@ This app keeps the TV audio output active by playing a short ultrasonic PCM tone
 96 kHz sample rate
 900 / 32767 amplitude
 6 seconds
-every 9 minutes
+every 2 minutes
 ```
 
 I could not hear the 25 kHz pulse. Android reported a real `PCM_16_BIT` stream routed to `HDMI_ARC`, so the TV side of the chain is doing what we want. Whether a given soundbar treats that signal as activity depends on its input path and standby detector.
@@ -57,7 +57,7 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 ./scripts/build-debug-apk.sh
 ```
 
-This project currently uses a small shell build script instead of Gradle. It needs `aapt2`, `d8`, `zipalign`, `apksigner`, `javac`, and `keytool`.
+This project currently uses a small shell build script. It needs `aapt2`, `d8`, `zipalign`, `apksigner`, `javac`, and `keytool`.
 
 ## Install
 
@@ -86,7 +86,7 @@ export TV_ADB_TARGET="YOUR_TV_ADB_HOST:5555"
 Override the defaults with environment variables:
 
 ```sh
-FREQUENCY_HZ=22000 SAMPLE_RATE=48000 AMPLITUDE=1200 DURATION_MS=6000 INTERVAL_SEC=540 \
+FREQUENCY_HZ=22000 SAMPLE_RATE=48000 AMPLITUDE=1200 DURATION_MS=6000 INTERVAL_SEC=120 \
   ./scripts/start-keepalive-adb.sh "$TV_ADB_TARGET"
 ```
 
@@ -113,7 +113,7 @@ The service is `exported=true` so ADB can start it directly. That is convenient 
 
 The app logs two info lines per pulse. Android logcat is a bounded ring buffer, so it should not grow like an app-owned log file. If you want quieter logs, remove the `Log.i` lines in `KeepAliveService.playPulse`.
 
-After `Start`, the app stores an enabled flag and uses a boot/package-replaced receiver to bring the foreground service back. Some Android TV builds are aggressive about background starts; if yours still kills it, open the app and press `Start` once again, then check the status line for the latest pulse time.
+The app starts itself after boot unless you have pressed `Stop`. `Start` stores the service as enabled, and `Stop` disables that restore path. The default interval is 2 minutes because one tested setup dropped ARC before the old 9 minute and 4 minute pulses arrived.
 
 ## License
 

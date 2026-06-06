@@ -35,13 +35,17 @@ public class KeepAliveService extends Service {
     private static final String TAG = "SoundbarKeepalive";
     private static final String CHANNEL_ID = "soundbar_keepalive";
     private static final int NOTIFICATION_ID = 7603;
+    private static final int CONFIG_VERSION = 4;
+    private static final int LEGACY_DEFAULT_INTERVAL_SEC = 540;
+    private static final int TRANSIENT_DEFAULT_INTERVAL_SEC = 240;
     public static final int DEFAULT_FREQUENCY_HZ = 25000;
     public static final int DEFAULT_AMPLITUDE = 900;
     public static final int DEFAULT_DURATION_MS = 6000;
-    public static final int DEFAULT_INTERVAL_SEC = 540;
+    public static final int DEFAULT_INTERVAL_SEC = 120;
     public static final int DEFAULT_SAMPLE_RATE = 96000;
 
     public static final String PREFS_NAME = "settings";
+    public static final String PREF_CONFIG_VERSION = "config_version";
     public static final String PREF_ENABLED = "enabled";
     public static final String PREF_LAST_START_MS = "last_start_ms";
     public static final String PREF_LAST_PULSE_STARTED_MS = "last_pulse_started_ms";
@@ -61,7 +65,7 @@ public class KeepAliveService extends Service {
 
     public static void startIfEnabled(Context context, String reason) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (!prefs.getBoolean(PREF_ENABLED, false)) {
+        if (prefs.contains(PREF_ENABLED) && !prefs.getBoolean(PREF_ENABLED, false)) {
             Log.i(TAG, "skip restart, disabled reason=" + reason);
             return;
         }
@@ -150,6 +154,7 @@ public class KeepAliveService extends Service {
 
     private void loadConfig(Intent intent) {
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        migrateConfig(prefs);
         int nextFrequency = prefs.getInt(EXTRA_FREQUENCY_HZ, DEFAULT_FREQUENCY_HZ);
         int nextAmplitude = prefs.getInt(EXTRA_AMPLITUDE, DEFAULT_AMPLITUDE);
         int nextDuration = prefs.getInt(EXTRA_DURATION_MS, DEFAULT_DURATION_MS);
@@ -176,7 +181,22 @@ public class KeepAliveService extends Service {
                 .putInt(EXTRA_DURATION_MS, durationMs)
                 .putInt(EXTRA_INTERVAL_SEC, intervalSec)
                 .putInt(EXTRA_SAMPLE_RATE, sampleRate)
+                .putInt(PREF_CONFIG_VERSION, CONFIG_VERSION)
                 .apply();
+    }
+
+    public static void migrateConfig(SharedPreferences prefs) {
+        int version = prefs.getInt(PREF_CONFIG_VERSION, 0);
+        if (version >= CONFIG_VERSION) {
+            return;
+        }
+
+        SharedPreferences.Editor editor = prefs.edit();
+        int savedInterval = prefs.getInt(EXTRA_INTERVAL_SEC, DEFAULT_INTERVAL_SEC);
+        if (savedInterval == LEGACY_DEFAULT_INTERVAL_SEC || savedInterval == TRANSIENT_DEFAULT_INTERVAL_SEC) {
+            editor.putInt(EXTRA_INTERVAL_SEC, DEFAULT_INTERVAL_SEC);
+        }
+        editor.putInt(PREF_CONFIG_VERSION, CONFIG_VERSION).apply();
     }
 
     private void playPulseAsync(final boolean stopAfterPulse) {
