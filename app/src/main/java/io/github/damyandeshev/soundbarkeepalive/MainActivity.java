@@ -312,10 +312,12 @@ public class MainActivity extends Activity {
         boolean enabled = prefs.getBoolean(KeepAliveService.PREF_ENABLED, false);
         long count = prefs.getLong(KeepAliveService.PREF_PULSE_COUNT, 0L);
         long lastFinished = prefs.getLong(KeepAliveService.PREF_LAST_PULSE_FINISHED_MS, 0L);
+        String lastRoute = prefs.getString(KeepAliveService.PREF_LAST_ROUTE, "unknown");
         String lastError = prefs.getString(KeepAliveService.PREF_LAST_ERROR, "");
         String text = (enabled ? "Enabled" : "Disabled")
                 + " | pulses " + count
-                + " | last " + formatTime(lastFinished);
+                + " | last " + formatTime(lastFinished)
+                + "\nroute " + lastRoute;
         if (lastError != null && lastError.length() > 0) {
             text += "\nLast error: " + lastError;
         }

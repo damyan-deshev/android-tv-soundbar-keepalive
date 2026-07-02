@@ -32,7 +32,7 @@ The TV UI lets you set:
 
 There are also quick presets for `22k`, `25k`, and `Silent`. The silent preset is useful for checking whether an active PCM stream alone is enough for your hardware.
 
-The status line shows whether keepalive is enabled, how many pulses have completed, the last pulse time, and the last saved error if one happened.
+The status line shows whether keepalive is enabled, how many pulses have completed, the last pulse time, the last observed audio route, and the last saved error if one happened.
 
 ## Download APK
 
@@ -107,6 +107,10 @@ Stop it:
 - the `Silent` preset, in case the hardware only cares about an active PCM stream
 
 Start low. Some TVs, DACs, speakers, pets, or younger ears may react differently to high frequency content.
+
+## Troubleshooting
+
+If the soundbar is off while the app is still running, do not assume Android killed the service. First confirm whether ARC is still established and whether the pulse is routed to `HDMI_ARC` or to the built-in speaker. See [HDMI ARC Troubleshooting Notes](docs/arc-troubleshooting.md) for the observed failure signature and ADB checks.
 
 ## Current Rough Edges
 

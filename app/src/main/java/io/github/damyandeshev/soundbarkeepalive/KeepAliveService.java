@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.os.Build;
@@ -56,6 +57,7 @@ public class KeepAliveService extends Service {
     public static final String PREF_LAST_PULSE_FINISHED_MS = "last_pulse_finished_ms";
     public static final String PREF_PULSE_COUNT = "pulse_count";
     public static final String PREF_LAST_ERROR = "last_error";
+    public static final String PREF_LAST_ROUTE = "last_route";
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -290,6 +292,12 @@ public class KeepAliveService extends Service {
                     .build();
             track.write(pcm, 0, pcm.length, AudioTrack.WRITE_BLOCKING);
             track.play();
+            Thread.sleep(150L);
+            AudioDeviceInfo routedDevice = track.getRoutedDevice();
+            saveLastRoute(routedDevice);
+            if (isBuiltInSpeaker(routedDevice)) {
+                saveRouteLostError(routedDevice);
+            }
             Thread.sleep(ms + 150L);
         } catch (Exception e) {
             savePulseError(e);
@@ -346,6 +354,56 @@ public class KeepAliveService extends Service {
                 .putLong(PREF_LAST_PULSE_FINISHED_MS, System.currentTimeMillis())
                 .putLong(PREF_PULSE_COUNT, count)
                 .apply();
+    }
+
+    private void saveLastRoute(AudioDeviceInfo device) {
+        String route = describeDevice(device);
+        getSettings(this)
+                .edit()
+                .putString(PREF_LAST_ROUTE, route)
+                .apply();
+        Log.i(TAG, "pulse route " + route);
+    }
+
+    private boolean isBuiltInSpeaker(AudioDeviceInfo device) {
+        return device != null && device.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER;
+    }
+
+    private String describeDevice(AudioDeviceInfo device) {
+        if (device == null) {
+            return "unknown";
+        }
+        CharSequence name = device.getProductName();
+        String suffix = name == null || name.length() == 0 ? "" : " " + name;
+        return audioDeviceTypeName(device.getType()) + suffix;
+    }
+
+    private String audioDeviceTypeName(int type) {
+        switch (type) {
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER:
+                return "BUILTIN_SPEAKER";
+            case AudioDeviceInfo.TYPE_HDMI:
+                return "HDMI";
+            case AudioDeviceInfo.TYPE_HDMI_ARC:
+                return "HDMI_ARC";
+            case AudioDeviceInfo.TYPE_LINE_ANALOG:
+                return "LINE_ANALOG";
+            case AudioDeviceInfo.TYPE_LINE_DIGITAL:
+                return "LINE_DIGITAL";
+            case AudioDeviceInfo.TYPE_AUX_LINE:
+                return "AUX_LINE";
+            default:
+                return "TYPE_" + type;
+        }
+    }
+
+    private void saveRouteLostError(AudioDeviceInfo device) {
+        String route = describeDevice(device);
+        getSettings(this)
+                .edit()
+                .putString(PREF_LAST_ERROR, "Audio route lost: " + route)
+                .apply();
+        Log.w(TAG, "pulse route lost " + route);
     }
 
     private void savePulseError(Exception e) {
